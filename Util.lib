@@ -1,0 +1,410 @@
+;This library contains all the utility/ helper functions that we used
+
+
+; setting candy properties which is to be printed
+setCandy macro k, l, m
+	
+	push ax
+	mov ax, k
+	mov x, ax
+	mov ax, l
+	mov y, ax
+	mov ax, m
+	mov id, ax
+	pop ax
+endm
+
+;----------------------------------------------------
+;Macro to add delay functionality
+delay macro time
+	local S1,S2
+	mov cx, time
+	S1:
+		mov dx, time
+		S2:
+			dec dx
+			cmp dx, 0
+		jne S2
+	Loop S1
+endm
+
+;----------------------------------------------------
+;Macro to generate random number, takes a variable as parameter
+genRandom macro randNum,  lowerBound, upperBound ; generated number is always one less than upperBound
+	local FIND_AGAIN
+	
+	push ax
+	push bx
+	push cx
+	push dx
+	
+	FIND_AGAIN:
+		delay 200 ; delay necessary otherwise same values are received
+		mov ah, 00h  ; interrupts to get system time        
+		int 1ah      ; CX:DX now hold number of clock ticks since midnight      
+		mov ax, dx
+		xor dx, dx
+		mov cx, upperBound    
+		div cx       ; here dx contains the remainder of the division - from 0 to 9
+		mov dh, 0
+		mov randNum, dx
+	cmp randNum, lowerBound
+	jbe FIND_AGAIN
+		 
+		 pop dx
+		 pop cx
+		 pop bx
+		 pop ax
+		 
+endm
+
+;----------------------------------------------------
+;Macro to set page Background and initialise graphic mode
+setBackground macro pageColour
+	mov ah, 00h ; setting video mode
+	mov al, 13 ; 320 x 200 resolution
+	int 10h	
+	mov ah, 0bh
+	mov bh, 00h	
+	mov bl, pageColour ; setting background colour
+	int 10h
+endm
+
+;----------------------------------------------------
+;Macro to manually relocate cursor postion
+setCur macro row, col, pageNum     
+	mov ah,02h
+	mov bh, 00h
+	mov dh, row ; maximum 24
+	mov dl, col ; maximum 39
+	int 10h
+endm
+
+;-----------------------------------------------------
+;Macro which moves cursor to the next line
+skipline macro 
+	mov dx, 10
+	mov ah, 02h
+	int 21h
+endm
+
+;-----------------------------------------------------
+;Macro to output a multi-digit number on console
+print macro 
+
+	local POP_STACK, PUSH_STACK
+
+	pop ax ; popping value from stack which needs to be printed
+
+	;Saving values of registers
+	push ax
+	push bx
+	push cx
+	push dx
+
+	mov cx, 0 ; resetting the value of cx
+
+	PUSH_STACK:
+	inc cx
+	mov dx, 0 
+	mov bx, 10
+	div bx
+	push dx
+	cmp ax, 0
+	ja PUSH_STACK
+
+	POP_STACK:
+	pop bx
+	mov bh, 0
+	mov dl, bl
+	add dl, 48
+	mov ah, 02
+	int 21h
+	loop POP_STACK
+
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+
+endm
+
+;--------------------------------------------------------
+printChar macro msg
+	mov dx, msg
+	add dx, '0'
+	mov ah, 02h
+	int 21h
+endm	
+
+;--------------------------------------------------------
+;Macro to show cursor on console
+showCursor macro
+	mov ax, 1
+	int 33h
+	
+	setCursorLimitX gridXoffset, gridSize
+	setCursorLimitY gridYoffset, gridSize
+endm	
+
+;--------------------------------------------------------
+;Macro to show cursor on console
+hideCursor macro
+	mov ax, 2
+	int 33h	
+endm	
+
+;--------------------------------------------------------
+;Macro to find mouse coordinates ( x=cx, y = dx)
+findMouseCoordinates macro mouseX, mouseY
+	mov ax, 3
+	int 33h
+	shr cx, 1
+	mov mouseX, cx
+	mov mouseY, dx
+endm
+
+;--------------------------------------------------------
+;Macro to reset cursor position to first line
+resetCursor macro xC, yC
+	mov dx, 0
+    mov ah, 2h                              
+    int 10h                   
+endm
+
+;--------------------------------------------------------
+;Macro to clear input buffer
+clearBuffer macro
+    mov ah, 0ch
+    mov al, 0
+    int 21h 
+endm
+
+;--------------------------------------------------------
+;Macro to set limit on mouse movement (X-Axis)
+setCursorLimitX macro gridXoffset, gridSize
+	
+	mov ax, 7h
+	mov cx, gridXoffset * 2
+	mov dx, ((gridXoffset * 2) + ( 7*gridSize*2))
+	int 33h
+endm
+
+;--------------------------------------------------------
+;Macro to set limit on mouse movement (Y-Axis)
+setCursorLimitY macro gridYoffset, gridSize 
+	mov ax, 8h
+	mov cx, gridYoffset
+	mov dx, (gridYoffset + ( 7 * gridSize))
+	int 33h
+endm
+
+;--------------------------------------------------------
+;Macro to initialise mouse
+initialiseMouse macro
+	mov ax, 0
+	int 33h
+endm
+
+;--------------------------------------------------------
+;Macro to take input of mouse coordinates
+takeMouseInput macro
+
+	local WAIT_FOR_FIRST_INPUT	
+
+	WAIT_FOR_FIRST_INPUT:
+		mov ax, 03h
+		int 33h
+		test bl, 1		
+	jz WAIT_FOR_FIRST_INPUT
+	
+endm
+
+;--------------------------------------------------------
+;Macro to swap candies
+swapCandies macro firstClickBox, secondClickBox, candyTypeArray
+
+	 mov bx, firstClickBox
+	 mov ax, candyTypeArray[bx]	;ax has candy which was present on first click
+	 		
+	 mov bx, secondClickBox
+	 mov cx, candyTypeArray[bx]	;cx has candy which was present on second click
+	 
+	 ;swapping
+	 mov bx, firstClickBox
+	 mov candyTypeArray[bx], cx
+	 
+	 mov bx, secondClickBox
+	 mov candyTypeArray[bx], ax
+
+endm
+
+;---------------------------------------------------------
+;Macro to help directly swap variables
+move macro var_1, var_2
+	push dx
+	mov dx, var_2
+	mov var_1, dx
+	pop dx
+
+endm
+
+;---------------------------------------------------------
+;Macro to store data from a variable to a particular array index
+moveVarToArr macro array, index, var
+
+	push si
+	push dx
+	
+	mov si, index
+	mov dx, var
+	mov array[si], dx
+	
+	pop dx
+	pop si
+
+endm
+
+;---------------------------------------------------------
+;Macro to store data froma particular array index to a variable 
+moveArrToVar macro var, array, index
+
+	push si
+	push dx
+	
+	mov si, index
+	mov dx, array[si]
+	mov var, dx
+	
+	pop dx
+	pop si
+
+endm
+
+;---------------------------------------------------------
+;Macro to halt program and wait for user input (any key press)
+waitForUserInput macro 
+
+	push ax
+	mov ah, 0
+	int 16h
+	pop ax
+
+endm
+
+;--------------------------------------------------------
+;Macro to write text to file
+writeToFile macro file, msg
+	mov ah, 40h
+	mov bx, file
+	mov cx, lengthof msg -1
+	mov dx, offset msg
+	int 21h
+	
+endm
+
+;-----------------------------------------------------------
+;Macro to exit game and return control
+quitGame macro
+	mov ah, 04ch
+	int 21h
+endm
+
+;-----------------------------------------------------------
+;Macro to save (Push) register values
+saveRegisterStates macro
+
+	push ax
+	push bx
+	push cx
+	push dx
+	push i
+	push j
+endm
+
+;-----------------------------------------------------------
+;Macro to retrieveRegisterStates after pushing them via the above macro
+retrieveRegisterStates macro
+	pop j
+	pop i
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+endm
+
+;-----------------------------------------------------------
+;Macro which returns column in which a certain box exists
+findColNum macro boxNum, colNum
+
+	saveRegisterStates
+	
+	mov dx, 0
+	mov ax, boxNum
+	mov bx, 14
+	div bx
+	
+	mov bx,2
+	mov ax, dx
+	mov dx, 0
+	div bx
+	mov colNum, ax
+	inc colNum
+	
+	retrieveRegisterStates
+endm
+
+;-----------------------------------------------------------
+;Macro which returns the row in which a certain box exists
+findRowNum macro boxNum, RowNum
+
+	saveRegisterStates
+	
+	mov dx, 0
+	mov ax, boxNum
+	mov bx, 2
+	div bx
+
+	mov dx, 0
+	mov bx,7
+	div bx
+	mov rowNum, ax
+	inc rowNum
+	
+	retrieveRegisterStates
+endm
+
+;-----------------------------------------------------------
+;Macro which converts int to string
+
+convertIntToStr macro str, int, i
+	local POP_STACK_, PUSH_STACK_
+	
+	saveRegisterStates
+	
+	mov i, 0
+	mov ax, int
+	mov cx, 0
+	
+	PUSH_STACK_:
+		mov dx, 0 
+		mov bx, 10
+		div bx
+		inc cx
+		push dx
+		cmp ax, 0
+	ja PUSH_STACK_
+
+
+	POP_STACK_:
+		pop bx
+		add bl, 48
+		mov si, i
+		mov str[si], bl
+		inc i
+	loop POP_STACK_
+	
+	retrieveRegisterStates
+	
+endm
+
